@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="pt-BR" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Partituras</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+    .title-font { font-family: 'Playfair Display', serif; }
+    
+    .staff-line {
+      height: 1px;
+      background: #1a1a2e;
+    }
+    
+    .note-btn:hover { transform: scale(1.05); }
+    .note-btn:active { transform: scale(0.95); }
+    
+    .tool-btn {
+      transition: all 0.2s ease;
+    }
+    .tool-btn:hover {
+      background: #3b3b5c;
+      transform: translateY(-2px);
+    }
+    .tool-btn.active {
+      background: #6366f1;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+    }
+    
+    .note-element {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .note-element:hover {
+      filter: brightness(1.2);
+    }
+    
+    .play-btn {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      transition: all 0.3s ease;
+    }
+    .play-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .playing { animation: pulse 0.5s ease-in-out infinite; }
+    
+    .scroll-container::-webkit-scrollbar {
+      height: 8px;
+    }
+    .scroll-container::-webkit-scrollbar-track {
+      background: #1a1a2e;
+      border-radius: 4px;
+    }
+    .scroll-container::-webkit-scrollbar-thumb {
+      background: #4a4a6a;
+      border-radius: 4px;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-auto">
+  <div class="h-full w-full flex flex-col p-4 md:p-6"><!-- Header -->
+   <header class="text-center mb-4">
+    <h1 id="score-title" class="title-font text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">Gerador de Partituras</h1>
+    <p class="text-purple-300/70 text-sm mt-1">Crie suas composições musicais</p>
+   </header><!-- Main Content -->
+   <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0"><!-- Toolbar -->
+    <div class="lg:w-64 bg-slate-800/50 backdrop-blur rounded-2xl p-4 border border-purple-500/20">
+     <div class="space-y-4"><!-- Clefs -->
+      <div>
+       <h3 class="text-xs uppercase tracking-wider text-purple-400 mb-2 font-semibold">Claves</h3>
+       <div class="grid grid-cols-3 lg:grid-cols-2 gap-2"><button onclick="selectTool('clef-treble')" class="tool-btn p-3 bg-slate-700/50 rounded-xl text-center" data-tool="clef-treble"> <span class="text-2xl">𝄞</span> <span class="text-xs block text-purple-300">Sol</span> </button> <button onclick="selectTool('clef-bass')" class="tool-btn p-3 bg-slate-700/50 rounded-xl text-center" data-tool="clef-bass"> <span class="text-2xl">𝄢</span> <span class="text-xs block text-purple-300">Fá</span> </button> <button onclick="selectTool('clef-alto')" class="tool-btn p-3 bg-slate-700/50 rounded-xl text-center" data-tool="clef-alto"> <span class="text-2xl">𝄡</span> <span class="text-xs block text-purple-300">Dó</span> </button>
+       </div>
+      </div><!-- Time Signatures -->
+      <div>
+       <h3 class="text-xs uppercase tracking-wider text-purple-400 mb-2 font-semibold">Compassos</h3>
+       <div class="grid grid-cols-4 lg:grid-cols-2 gap-2"><button onclick="selectTool('time-44')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="time-44"> <span class="text-lg font-bold">4/4</span> </button> <button onclick="selectTool('time-34')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="time-34"> <span class="text-lg font-bold">3/4</span> </button> <button onclick="selectTool('time-24')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="time-24"> <span class="text-lg font-bold">2/4</span> </button> <button onclick="selectTool('time-68')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="time-68"> <span class="text-lg font-bold">6/8</span> </button>
+       </div>
+      </div><!-- Notes -->
+      <div>
+       <h3 class="text-xs uppercase tracking-wider text-purple-400 mb-2 font-semibold">Notas</h3>
+       <div class="grid grid-cols-5 lg:grid-cols-3 gap-2"><button onclick="selectTool('note-whole')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="note-whole" title="Semibreve"> <span class="text-2xl">𝅝</span> </button> <button onclick="selectTool('note-half')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="note-half" title="Mínima"> <span class="text-2xl">𝅗𝅥</span> </button> <button onclick="selectTool('note-quarter')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="note-quarter" title="Semínima"> <span class="text-2xl">♩</span> </button> <button onclick="selectTool('note-eighth')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="note-eighth" title="Colcheia"> <span class="text-2xl">♪</span> </button> <button onclick="selectTool('note-sixteenth')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="note-sixteenth" title="Semicolcheia"> <span class="text-2xl">𝅘𝅥𝅯</span> </button>
+       </div>
+      </div><!-- Rests -->
+      <div>
+       <h3 class="text-xs uppercase tracking-wider text-purple-400 mb-2 font-semibold">Pausas</h3>
+       <div class="grid grid-cols-4 lg:grid-cols-2 gap-2"><button onclick="selectTool('rest-whole')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="rest-whole"> <span class="text-xl">𝄻</span> </button> <button onclick="selectTool('rest-half')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="rest-half"> <span class="text-xl">𝄼</span> </button> <button onclick="selectTool('rest-quarter')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="rest-quarter"> <span class="text-xl">𝄽</span> </button> <button onclick="selectTool('rest-eighth')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="rest-eighth"> <span class="text-xl">𝄾</span> </button>
+       </div>
+      </div><!-- Accidentals -->
+      <div>
+       <h3 class="text-xs uppercase tracking-wider text-purple-400 mb-2 font-semibold">Acidentes</h3>
+       <div class="grid grid-cols-3 gap-2"><button onclick="selectTool('sharp')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="sharp"> <span class="text-xl">♯</span> </button> <button onclick="selectTool('flat')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="flat"> <span class="text-xl">♭</span> </button> <button onclick="selectTool('natural')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="natural"> <span class="text-xl">♮</span> </button>
+       </div>
+      </div><!-- Other -->
+      <div>
+       <h3 class="text-xs uppercase tracking-wider text-purple-400 mb-2 font-semibold">Outros</h3>
+       <div class="grid grid-cols-2 gap-2"><button onclick="selectTool('barline')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="barline"> <span class="text-xl">│</span> <span class="text-xs block text-purple-300">Barra</span> </button> <button onclick="selectTool('dot')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="dot"> <span class="text-xl">•</span> <span class="text-xs block text-purple-300">Ponto</span> </button> <button onclick="selectTool('tie')" class="tool-btn p-2 bg-slate-700/50 rounded-xl text-center" data-tool="tie"> <span class="text-xl">⌒</span> <span class="text-xs block text-purple-300">Ligadura</span> </button> <button onclick="selectTool('eraser')" class="tool-btn p-2 bg-red-700/50 rounded-xl text-center" data-tool="eraser"> <span class="text-xl">🗑️</span> <span class="text-xs block text-red-300">Apagar</span> </button>
+       </div>
+      </div>
+     </div>
+    </div><!-- Score Area -->
+    <div class="flex-1 flex flex-col min-h-0 bg-slate-800/30 backdrop-blur rounded-2xl border border-purple-500/20 overflow-hidden"><!-- Staff Container -->
+     <div class="flex-1 overflow-auto scroll-container p-4" id="staff-container">
+      <div id="score-area" class="bg-amber-50 rounded-xl p-6 min-w-[800px] shadow-2xl"><!-- Title on score -->
+       <h2 id="score-title-display" class="title-font text-2xl text-slate-800 text-center mb-6 font-semibold">Minha Composição</h2><!-- Staff Lines -->
+       <div id="staff" class="relative" style="height: 200px;"><!-- 5 staff lines -->
+        <div class="staff-line absolute w-full" style="top: 40px;"></div>
+        <div class="staff-line absolute w-full" style="top: 60px;"></div>
+        <div class="staff-line absolute w-full" style="top: 80px;"></div>
+        <div class="staff-line absolute w-full" style="top: 100px;"></div>
+        <div class="staff-line absolute w-full" style="top: 120px;"></div><!-- Ledger lines area (above and below) -->
+        <div id="elements-container" class="absolute inset-0"></div><!-- Click zones for note placement -->
+        <div id="click-zones" class="absolute inset-0"></div>
+       </div>
+      </div>
+     </div><!-- Player Controls -->
+     <div class="p-4 bg-slate-900/50 border-t border-purple-500/20">
+      <div class="flex flex-wrap items-center justify-center gap-3"><button onclick="playScore()" id="play-btn" class="play-btn px-6 py-3 rounded-full font-semibold flex items-center gap-2 text-white"> <span id="play-icon">▶</span> <span id="play-text">Tocar</span> </button> <button onclick="stopScore()" class="px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-full font-semibold transition-all"> ⏹ Parar </button>
+       <div class="flex items-center gap-2 bg-slate-700/50 rounded-full px-4 py-2"><span class="text-sm text-purple-300">Tempo:</span> <input type="range" id="tempo" min="40" max="200" value="120" class="w-24 accent-purple-500"> <span id="tempo-display" class="text-sm font-mono w-12">120</span>
+       </div><button onclick="clearScore()" class="px-4 py-3 bg-red-600/50 hover:bg-red-600 rounded-full font-semibold transition-all"> 🗑️ Limpar </button> <button onclick="exportPDF()" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-full font-semibold transition-all flex items-center gap-2"> 📄 Exportar PDF </button>
+      </div>
+     </div>
+    </div>
+   </div><!-- Current Tool Indicator -->
+   <div id="tool-indicator" class="fixed bottom-4 left-4 bg-purple-600/90 backdrop-blur px-4 py-2 rounded-full text-sm font-medium shadow-lg hidden">
+    Ferramenta: <span id="current-tool-name">Nenhuma</span>
+   </div>
+  </div>
+  <script>
+    // State
+    let currentTool = null;
+    let scoreElements = [];
+    let isPlaying = false;
+    let audioContext = null;
+    let currentPlayIndex = 0;
+    let playTimeout = null;
+
+    // Default config
+    const defaultConfig = {
+      title: 'Minha Composição',
+      primary_color: '#6366f1',
+      background_color: '#0f172a',
+      text_color: '#ffffff',
+      accent_color: '#a855f7',
+      surface_color: '#1e293b'
+    };
+
+    // Note frequencies (A4 = 440Hz)
+    const noteFrequencies = {
+      'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+      'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+      'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
+      'C6': 1046.50
+    };
+
+    // Staff positions to notes (treble clef)
+    const positionToNote = {
+      0: 'C6', 10: 'B5', 20: 'A5', 30: 'G5', 40: 'F5', 50: 'E5', 60: 'D5', 70: 'C5',
+      80: 'B4', 90: 'A4', 100: 'G4', 110: 'F4', 120: 'E4', 130: 'D4', 140: 'C4',
+      150: 'B3', 160: 'A3', 170: 'G3', 180: 'F3', 190: 'E3', 200: 'D3'
+    };
+
+    // Note symbols
+    const noteSymbols = {
+      'note-whole': '𝅝',
+      'note-half': '𝅗𝅥',
+      'note-quarter': '♩',
+      'note-eighth': '♪',
+      'note-sixteenth': '𝅘𝅥𝅯',
+      'rest-whole': '𝄻',
+      'rest-half': '𝄼',
+      'rest-quarter': '𝄽',
+      'rest-eighth': '𝄾',
+      'clef-treble': '𝄞',
+      'clef-bass': '𝄢',
+      'clef-alto': '𝄡',
+      'time-44': '4/4',
+      'time-34': '3/4',
+      'time-24': '2/4',
+      'time-68': '6/8',
+      'sharp': '♯',
+      'flat': '♭',
+      'natural': '♮',
+      'barline': '│',
+      'dot': '•',
+      'tie': '⌒'
+    };
+
+    // Note durations (in beats)
+    const noteDurations = {
+      'note-whole': 4,
+      'note-half': 2,
+      'note-quarter': 1,
+      'note-eighth': 0.5,
+      'note-sixteenth': 0.25,
+      'rest-whole': 4,
+      'rest-half': 2,
+      'rest-quarter': 1,
+      'rest-eighth': 0.5
+    };
+
+    // Initialize
+    function init() {
+      setupClickZones();
+      setupTempoSlider();
+      
+      // Initialize Element SDK
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => {
+            const title = config.title || defaultConfig.title;
+            document.getElementById('score-title').textContent = 'Gerador de Partituras';
+            document.getElementById('score-title-display').textContent = title;
+          },
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () => config.background_color || defaultConfig.background_color,
+                set: (value) => {
+                  config.background_color = value;
+                  window.elementSdk.setConfig({ background_color: value });
+                }
+              },
+              {
+                get: () => config.surface_color || defaultConfig.surface_color,
+                set: (value) => {
+                  config.surface_color = value;
+                  window.elementSdk.setConfig({ surface_color: value });
+                }
+              },
+              {
+                get: () => config.text_color || defaultConfig.text_color,
+                set: (value) => {
+                  config.text_color = value;
+                  window.elementSdk.setConfig({ text_color: value });
+                }
+              },
+              {
+                get: () => config.primary_color || defaultConfig.primary_color,
+                set: (value) => {
+                  config.primary_color = value;
+                  window.elementSdk.setConfig({ primary_color: value });
+                }
+              },
+              {
+                get: () => config.accent_color || defaultConfig.accent_color,
+                set: (value) => {
+                  config.accent_color = value;
+                  window.elementSdk.setConfig({ accent_color: value });
+                }
+              }
+            ],
+            borderables: [],
+            fontEditable: undefined,
+            fontSizeable: undefined
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ['title', config.title || defaultConfig.title]
+          ])
+        });
+      }
+    }
+
+    function setupClickZones() {
+      const clickZones = document.getElementById('click-zones');
+      clickZones.innerHTML = '';
+      
+      // Create click zones for each staff position
+      for (let y = 0; y <= 200; y += 10) {
+        const zone = document.createElement('div');
+        zone.className = 'absolute w-full h-[10px] cursor-crosshair hover:bg-purple-500/10';
+        zone.style.top = `${y}px`;
+        zone.dataset.position = y;
+        zone.addEventListener('click', handleStaffClick);
+        clickZones.appendChild(zone);
+      }
+    }
+
+    function setupTempoSlider() {
+      const tempoSlider = document.getElementById('tempo');
+      const tempoDisplay = document.getElementById('tempo-display');
+      tempoSlider.addEventListener('input', (e) => {
+        tempoDisplay.textContent = e.target.value;
+      });
+    }
+
+    function selectTool(tool) {
+      currentTool = tool;
+      
+      // Update UI
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      const activeBtn = document.querySelector(`[data-tool="${tool}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+      
+      // Show tool indicator
+      const indicator = document.getElementById('tool-indicator');
+      const toolName = document.getElementById('current-tool-name');
+      indicator.classList.remove('hidden');
+      
+      const toolNames = {
+        'clef-treble': 'Clave de Sol',
+        'clef-bass': 'Clave de Fá',
+        'clef-alto': 'Clave de Dó',
+        'time-44': 'Compasso 4/4',
+        'time-34': 'Compasso 3/4',
+        'time-24': 'Compasso 2/4',
+        'time-68': 'Compasso 6/8',
+        'note-whole': 'Semibreve',
+        'note-half': 'Mínima',
+        'note-quarter': 'Semínima',
+        'note-eighth': 'Colcheia',
+        'note-sixteenth': 'Semicolcheia',
+        'rest-whole': 'Pausa de Semibreve',
+        'rest-half': 'Pausa de Mínima',
+        'rest-quarter': 'Pausa de Semínima',
+        'rest-eighth': 'Pausa de Colcheia',
+        'sharp': 'Sustenido',
+        'flat': 'Bemol',
+        'natural': 'Bequadro',
+        'barline': 'Barra de Compasso',
+        'dot': 'Ponto de Aumento',
+        'tie': 'Ligadura',
+        'eraser': 'Borracha'
+      };
+      
+      toolName.textContent = toolNames[tool] || tool;
+    }
+
+    function handleStaffClick(e) {
+      if (!currentTool) return;
+      
+      const container = document.getElementById('elements-container');
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = parseInt(e.target.dataset.position);
+      
+      if (currentTool === 'eraser') {
+        // Find and remove element at this position
+        const elementToRemove = scoreElements.find(el => 
+          Math.abs(el.x - x) < 20 && Math.abs(el.y - y) < 15
+        );
+        if (elementToRemove) {
+          const index = scoreElements.indexOf(elementToRemove);
+          scoreElements.splice(index, 1);
+          renderScore();
+        }
+        return;
+      }
+      
+      // Create new element
+      const element = {
+        type: currentTool,
+        x: x,
+        y: y,
+        symbol: noteSymbols[currentTool],
+        note: positionToNote[y] || 'C4',
+        duration: noteDurations[currentTool] || 0,
+        id: Date.now()
+      };
+      
+      scoreElements.push(element);
+      scoreElements.sort((a, b) => a.x - b.x);
+      renderScore();
+    }
+
+    function renderScore() {
+      const container = document.getElementById('elements-container');
+      container.innerHTML = '';
+      
+      scoreElements.forEach((el, index) => {
+        const elem = document.createElement('div');
+        elem.className = 'note-element absolute transform -translate-x-1/2';
+        elem.dataset.index = index;
+        
+        let fontSize = '2rem';
+        let yOffset = -15;
+        
+        if (el.type.startsWith('clef')) {
+          fontSize = '3.5rem';
+          yOffset = -25;
+        } else if (el.type.startsWith('time')) {
+          fontSize = '1.2rem';
+          yOffset = -10;
+          elem.classList.add('font-bold');
+        } else if (el.type === 'barline') {
+          fontSize = '4rem';
+          yOffset = -40;
+        }
+        
+        elem.style.cssText = `
+          left: ${el.x}px;
+          top: ${el.y + yOffset}px;
+          font-size: ${fontSize};
+          color: #1a1a2e;
+        `;
+        elem.textContent = el.symbol;
+        elem.onclick = () => {
+          if (currentTool === 'eraser') {
+            scoreElements.splice(index, 1);
+            renderScore();
+          }
+        };
+        
+        container.appendChild(elem);
+        
+        // Add ledger lines for notes outside staff
+        if (el.type.startsWith('note') && (el.y < 40 || el.y > 120)) {
+          addLedgerLines(el.x, el.y);
+        }
+      });
+    }
+
+    function addLedgerLines(x, y) {
+      const container = document.getElementById('elements-container');
+      
+      if (y < 40) {
+        // Lines above staff
+        for (let lineY = 20; lineY < 40 && lineY >= y - 10; lineY += 20) {
+          const line = document.createElement('div');
+          line.className = 'absolute bg-slate-800';
+          line.style.cssText = `
+            left: ${x - 15}px;
+            top: ${lineY}px;
+            width: 30px;
+            height: 1px;
+          `;
+          container.appendChild(line);
+        }
+      }
+      
+      if (y > 120) {
+        // Lines below staff
+        for (let lineY = 140; lineY <= 180 && lineY <= y + 10; lineY += 20) {
+          const line = document.createElement('div');
+          line.className = 'absolute bg-slate-800';
+          line.style.cssText = `
+            left: ${x - 15}px;
+            top: ${lineY}px;
+            width: 30px;
+            height: 1px;
+          `;
+          container.appendChild(line);
+        }
+      }
+    }
+
+    function playScore() {
+      if (isPlaying) {
+        stopScore();
+        return;
+      }
+      
+      const playableNotes = scoreElements.filter(el => 
+        el.type.startsWith('note') && el.duration > 0
+      );
+      
+      if (playableNotes.length === 0) {
+        showToast('Adicione notas à partitura para tocar!');
+        return;
+      }
+      
+      isPlaying = true;
+      updatePlayButton();
+      
+      // Initialize audio context
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const tempo = parseInt(document.getElementById('tempo').value);
+      const beatDuration = 60 / tempo;
+      
+      currentPlayIndex = 0;
+      playNextNote(playableNotes, beatDuration);
+    }
+
+    function playNextNote(notes, beatDuration) {
+      if (!isPlaying || currentPlayIndex >= notes.length) {
+        stopScore();
+        return;
+      }
+      
+      const note = notes[currentPlayIndex];
+      const frequency = noteFrequencies[note.note] || 440;
+      const duration = note.duration * beatDuration;
+      
+      // Highlight current note
+      highlightNote(note.id);
+      
+      // Play sound
+      playTone(frequency, duration * 0.9);
+      
+      currentPlayIndex++;
+      playTimeout = setTimeout(() => {
+        playNextNote(notes, beatDuration);
+      }, duration * 1000);
+    }
+
+    function playTone(frequency, duration) {
+      if (!audioContext) return;
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      
+      // ADSR envelope
+      const now = audioContext.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    }
+
+    function highlightNote(id) {
+      // Remove previous highlights
+      document.querySelectorAll('.note-element').forEach(el => {
+        el.classList.remove('playing');
+        el.style.color = '#1a1a2e';
+      });
+      
+      // Find and highlight current note
+      const noteElement = scoreElements.findIndex(el => el.id === id);
+      const elements = document.querySelectorAll('.note-element');
+      if (elements[noteElement]) {
+        elements[noteElement].classList.add('playing');
+        elements[noteElement].style.color = '#6366f1';
+      }
+    }
+
+    function stopScore() {
+      isPlaying = false;
+      if (playTimeout) {
+        clearTimeout(playTimeout);
+        playTimeout = null;
+      }
+      
+      // Remove highlights
+      document.querySelectorAll('.note-element').forEach(el => {
+        el.classList.remove('playing');
+        el.style.color = '#1a1a2e';
+      });
+      
+      updatePlayButton();
+    }
+
+    function updatePlayButton() {
+      const icon = document.getElementById('play-icon');
+      const text = document.getElementById('play-text');
+      
+      if (isPlaying) {
+        icon.textContent = '⏸';
+        text.textContent = 'Pausar';
+      } else {
+        icon.textContent = '▶';
+        text.textContent = 'Tocar';
+      }
+    }
+
+    function clearScore() {
+      scoreElements = [];
+      renderScore();
+      showToast('Partitura limpa!');
+    }
+
+    function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      
+      const scoreArea = document.getElementById('score-area');
+      const title = document.getElementById('score-title-display').textContent;
+      
+      // Set up PDF
+      doc.setFontSize(24);
+      doc.text(title, 148, 20, { align: 'center' });
+      
+      // Draw staff lines
+      const startX = 20;
+      const startY = 50;
+      const lineSpacing = 5;
+      const lineLength = 257;
+      
+      doc.setLineWidth(0.3);
+      for (let i = 0; i < 5; i++) {
+        doc.line(startX, startY + (i * lineSpacing), startX + lineLength, startY + (i * lineSpacing));
+      }
+      
+      // Add elements
+      doc.setFontSize(16);
+      scoreElements.forEach(el => {
+        const pdfX = startX + (el.x / 800) * lineLength;
+        const pdfY = startY + (el.y / 200) * (lineSpacing * 8);
+        
+        // Use basic characters for PDF (Unicode music symbols might not render)
+        let symbol = el.symbol;
+        if (el.type.startsWith('note')) {
+          symbol = '●';
+        }
+        
+        doc.text(symbol, pdfX, pdfY);
+      });
+      
+      // Add footer
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text('Criado com Gerador de Partituras', 148, 200, { align: 'center' });
+      
+      doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+      showToast('PDF exportado com sucesso!');
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-purple-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-pulse';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    // Initialize on load
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d42d5fdd29327e7',t:'MTc3MjE0NDQ5MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
